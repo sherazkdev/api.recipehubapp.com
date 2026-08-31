@@ -1,0 +1,5 @@
+title,cuisineSlug,slug,prepTime,calories,difficulty,servings,status,description
+Garlic Bread,italian,garlic-bread,20,280,easy,4,published,Crispy baked bread with garlic butter and herbs.
+Spicy Chicken Curry,indian,spicy-chicken-curry,45,420,medium,4,published,A warm Indian curry with tender chicken and aromatic spices.
+Focaccia Panzanella Salad,italian,focaccia-panzanella-salad,20,365,easy,4,published,Italian bread salad with toasted focaccia and tomatoes.
+Test Pasta,italian,test-pasta,15,280,easy,2,draft,Simple pasta for import and image upload tests.

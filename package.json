@@ -1,0 +1,44 @@
+{
+  "name": "recipe-hub",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "seed": "tsx scripts/seed.ts",
+    "db:indexes": "tsx scripts/sync-indexes.ts",
+    "index": "tsx scripts/sync-indexes.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "bing-translate-api": "^4.2.1",
+    "csv-parse": "^7.0.2",
+    "dotenv": "^17.4.2",
+    "jsonwebtoken": "^9.0.3",
+    "lru-cache": "^11.5.2",
+    "mongoose": "^9.9.4",
+    "multer": "^2.2.0",
+    "next": "16.3.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-react": "^5.32.14",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.3",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.12",
+    "typescript": "^5"
+  }
+}
