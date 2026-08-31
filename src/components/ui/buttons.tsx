@@ -14,7 +14,7 @@ const base =
 export function PrimaryButton({ className, loading, loadingLabel, children, ...props }: ButtonProps) {
   return (
     <button
-      className={cn(base, "bg-[var(--text-primary)] text-[var(--page-bg)] hover:opacity-90", className)}
+      className={cn(base, "btn-inverse hover:opacity-90", className)}
       disabled={props.disabled || loading}
       {...props}
     >
@@ -42,7 +42,7 @@ export function PrimaryLink({
   return (
     <Link
       href={href}
-      className={cn(base, "bg-[var(--text-primary)] text-[var(--page-bg)] hover:opacity-90", className)}
+      className={cn(base, "btn-inverse hover:opacity-90", className)}
     >
       {children}
     </Link>

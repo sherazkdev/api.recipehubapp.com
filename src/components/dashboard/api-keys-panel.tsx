@@ -106,7 +106,7 @@ export function DashboardApiKeys() {
           action={
             <Link
               href={adminPath("/settings/api-keys")}
-              className="inline-flex h-8 items-center rounded-[8px] bg-[var(--text-primary)] px-3 text-[13px] text-[var(--page-bg)]"
+              className="btn-inverse inline-flex h-8 items-center rounded-[8px] px-3 text-[13px]"
             >
               Open API Keys
             </Link>

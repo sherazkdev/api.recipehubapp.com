@@ -73,7 +73,7 @@ function isActive(pathname: string, href: string) {
 function NavTooltip({ label, collapsed }: { label: string; collapsed: boolean }) {
   if (!collapsed) return null;
   return (
-    <span className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-[8px] bg-[var(--text-primary)] px-2 py-1 text-[12px] leading-[18px] text-[var(--page-bg)] group-hover:block">
+    <span className="btn-inverse pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-[8px] px-2 py-1 text-[12px] leading-[18px] group-hover:block">
       {label}
     </span>
   );

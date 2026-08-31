@@ -95,6 +95,10 @@
   --status-medium: #95a4fc;
   --status-hard: #1c1c1c;
 
+  /* Inverse actions: always opposite of the canvas so label stays readable */
+  --btn-inverse-bg: var(--static-black);
+  --btn-inverse-fg: var(--static-white);
+
   --header-height: 68px;
   --sidebar-width: 212px;
   --sidebar-collapsed-width: 72px;
@@ -170,6 +174,9 @@
   --status-active: #baedbd;
   --status-inactive: #8d8d8d;
   --status-hard: #ffffff;
+
+  --btn-inverse-bg: var(--static-white);
+  --btn-inverse-fg: var(--static-black);
 }
 
 @theme inline {
@@ -341,7 +348,17 @@ input,
 textarea,
 select {
   font-family: inherit;
+}
+
+input,
+textarea,
+select {
   color: var(--text-primary);
+}
+
+.btn-inverse {
+  background-color: var(--btn-inverse-bg);
+  color: var(--btn-inverse-fg);
 }
 
 select option,

@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      return jsonMedia(req, mapRecipe(recipe));
+      return jsonMedia(req, mapRecipe(recipe.toObject()));
     } catch (error) {
       if ((error as { code?: number }).code === 11000) {
         return badRequest("Recipe slug already exists");
@@ -194,7 +194,10 @@ export async function PUT(request: NextRequest) {
 
       const { content, imageUrl, ...recipeFields } = parsed.data;
       if (imageUrl && !recipeFields.imagePath) recipeFields.imagePath = imageUrl;
-      const recipe = await Recipe.findByIdAndUpdate(id, recipeFields, { returnDocument: "after" });
+      const recipe = await Recipe.findByIdAndUpdate(id, recipeFields, {
+        new: true,
+        lean: true,
+      });
       if (!recipe) return notFound("Recipe not found");
       invalidateRecipeCaches();
 

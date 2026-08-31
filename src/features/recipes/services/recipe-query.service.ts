@@ -45,6 +45,27 @@ export type LocalizedContent = {
   }>;
 };
 
+const NUTRITION_KEYS = [
+  "protein",
+  "carbs",
+  "fat",
+  "fiber",
+  "sugar",
+  "sodium",
+  "saturatedFat",
+  "cholesterol",
+] as const;
+
+function mapNutrition(nutrition?: Record<string, number> | null) {
+  if (!nutrition) return {};
+  const out: Record<string, number> = {};
+  for (const key of NUTRITION_KEYS) {
+    const value = nutrition[key];
+    if (typeof value === "number" && Number.isFinite(value)) out[key] = value;
+  }
+  return out;
+}
+
 export function mapRecipe(recipe: {
   _id: mongoose.Types.ObjectId;
   slug: string;
@@ -69,7 +90,7 @@ export function mapRecipe(recipe: {
     calories: recipe.calories ?? 0,
     difficulty: recipe.difficulty ?? "easy",
     servings: recipe.servings ?? 1,
-    nutrition: recipe.nutrition ?? {},
+    nutrition: mapNutrition(recipe.nutrition),
     status: recipe.status ?? "draft",
     sortOrder: recipe.sortOrder ?? 0,
     createdAt: recipe.createdAt,

@@ -22,18 +22,30 @@ export function toImageUrl(origin: string, path?: string | null) {
   return `${origin}${rel}`;
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== "object") return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
 export function attachImageUrls<T>(origin: string, value: T): T {
-  if (Array.isArray(value)) {
-    return value.map((item) => attachImageUrls(origin, item)) as T;
-  }
-  if (!value || typeof value !== "object") return value;
-  const obj = value as Record<string, unknown>;
-  const next: Record<string, unknown> = {};
-  for (const [key, child] of Object.entries(obj)) {
-    next[key] = attachImageUrls(origin, child);
-  }
-  if ("imagePath" in obj) {
-    next.imageUrl = toImageUrl(origin, typeof obj.imagePath === "string" ? obj.imagePath : "");
-  }
-  return next as T;
+  const seen = new WeakSet<object>();
+
+  const walk = (node: unknown): unknown => {
+    if (Array.isArray(node)) return node.map(walk);
+    if (!isPlainObject(node)) return node;
+    if (seen.has(node)) return node;
+    seen.add(node);
+
+    const next: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(node)) {
+      next[key] = walk(child);
+    }
+    if ("imagePath" in node) {
+      next.imageUrl = toImageUrl(origin, typeof node.imagePath === "string" ? node.imagePath : "");
+    }
+    return next;
+  };
+
+  return walk(value) as T;
 }

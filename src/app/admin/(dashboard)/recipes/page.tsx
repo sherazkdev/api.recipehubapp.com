@@ -63,7 +63,7 @@ function FilterChip({
       className={cn(
         "inline-flex h-7 items-center rounded-full px-3 text-[12px] leading-[18px] transition-colors",
         active
-          ? "bg-[var(--text-primary)] text-[var(--page-bg)]"
+          ? "btn-inverse"
           : "bg-[var(--black-05)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]",
       )}
     >

@@ -34,7 +34,7 @@ function AddLink({ href, children }: { href: string; children: string }) {
   return (
     <Link
       href={href}
-      className="inline-flex h-8 items-center gap-1.5 rounded-[8px] bg-[var(--text-primary)] px-3 text-[13px] text-[var(--page-bg)]"
+      className="btn-inverse inline-flex h-8 items-center gap-1.5 rounded-[8px] px-3 text-[13px]"
     >
       <Icon name="plus" size={14} />
       {children}
