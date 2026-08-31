@@ -116,7 +116,7 @@ export function Select({
 }: SelectHTMLAttributes<HTMLSelectElement> & { children: ReactNode }) {
   return (
     <div className="relative">
-      <select className={cn(control, "appearance-none pr-8", className)} {...props}>
+      <select className={cn(control, "appearance-none pr-8 text-ink", className)} {...props}>
         {children}
       </select>
       <Icon

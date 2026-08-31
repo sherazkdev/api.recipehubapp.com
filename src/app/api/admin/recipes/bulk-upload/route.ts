@@ -6,6 +6,7 @@ import { invalidateRecipeCaches } from "@/shared/cache/invalidate";
 import { connectDb } from "@/shared/db/connect";
 import { badRequest, serverError, withAuth } from "@/shared/middleware/auth";
 import { enforceRateLimit } from "@/shared/middleware/rate-limit";
+import { publicOrigin, toImageUrl } from "@/shared/http/media-url";
 import { jsonOk } from "@/shared/utils/http";
 import { mapLimit } from "@/shared/utils/async";
 
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
         try {
           const path = await saveUpload(file, "recipes");
           await Recipe.updateOne({ _id: recipe._id }, { $set: { imagePath: path } });
-          return { filename: file.name, slug, matched: true, path };
+          return { filename: file.name, slug, matched: true, path, imageUrl: toImageUrl(publicOrigin(req), path) };
         } catch (err) {
           return {
             filename: file.name,

@@ -3,6 +3,7 @@ import { saveUpload } from "@/features/upload/utils/storage";
 import { safeSubdir } from "@/features/upload/utils/validate";
 import { badRequest, serverError, withAuth } from "@/shared/middleware/auth";
 import { enforceRateLimit } from "@/shared/middleware/rate-limit";
+import { toImageUrl, publicOrigin } from "@/shared/http/media-url";
 import { jsonOk } from "@/shared/utils/http";
 
 export async function POST(request: NextRequest) {
@@ -20,7 +21,8 @@ export async function POST(request: NextRequest) {
       }
 
       const path = await saveUpload(file, subdir);
-      return jsonOk({ path, url: `/uploads/${path}` });
+      const imageUrl = toImageUrl(publicOrigin(req), path);
+      return jsonOk({ path, imageUrl, url: imageUrl });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Upload failed";
       if (message.includes("too large") || message.includes("Only JPG")) {

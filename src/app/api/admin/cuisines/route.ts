@@ -7,7 +7,7 @@ import { invalidateCatalogCaches } from "@/shared/cache/invalidate";
 import { cacheGet, cacheSet, getCache } from "@/shared/cache/lru";
 import { connectDb } from "@/shared/db/connect";
 import { badRequest, notFound, serverError, withAuth } from "@/shared/middleware/auth";
-import { compactFilters, jsonOk, slugify } from "@/shared/utils/http";
+import { compactFilters, jsonMedia, jsonOk, slugify } from "@/shared/utils/http";
 import { applyReorder, nextSortOrder, parseReorderIds } from "@/shared/utils/reorder";
 
 const catalogCache = getCache("catalog", 20, 120_000);
@@ -16,6 +16,7 @@ const cuisineSchema = z.object({
   name: z.string().min(1),
   slug: z.string().optional(),
   imagePath: z.string().max(500).refine((value) => isSafeImagePath(value), "Invalid image path").optional(),
+  imageUrl: z.string().max(500).refine((value) => isSafeImagePath(value), "Invalid image url").optional(),
   description: z.string().optional(),
   sortOrder: z.number().int().min(0).optional(),
 });
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
         return true;
       });
 
-      return jsonOk(filtered, undefined, {
+      return jsonMedia(req, filtered, undefined, {
         filters: compactFilters({ id, slug, q }),
       });
     } catch (error) {
@@ -78,13 +79,13 @@ export async function POST(request: NextRequest) {
       const doc = await Cuisine.create({
         name: parsed.data.name,
         slug,
-        imagePath: parsed.data.imagePath ?? "",
+        imagePath: parsed.data.imagePath || parsed.data.imageUrl || "",
         description: parsed.data.description ?? "",
         sortOrder: parsed.data.sortOrder ?? (await nextSortOrder(Cuisine)),
       });
 
       invalidateCatalogCaches();
-      return jsonOk({
+      return jsonMedia(req, {
         id: doc._id.toString(),
         name: doc.name,
         slug: doc.slug,
@@ -121,7 +122,9 @@ export async function PUT(request: NextRequest) {
       const parsed = cuisineSchema.partial().safeParse(body);
       if (!parsed.success) return badRequest("Invalid cuisine data");
 
-      const update: Record<string, unknown> = { ...parsed.data };
+      const { imageUrl, ...fields } = parsed.data;
+      const update: Record<string, unknown> = { ...fields };
+      if (imageUrl && !fields.imagePath) update.imagePath = imageUrl;
       if (parsed.data.name && !parsed.data.slug) {
         update.slug = slugify(parsed.data.name);
       }
@@ -130,7 +133,7 @@ export async function PUT(request: NextRequest) {
       if (!doc) return notFound("Cuisine not found");
       invalidateCatalogCaches();
 
-      return jsonOk({
+      return jsonMedia(req, {
         id: doc._id.toString(),
         name: doc.name,
         slug: doc.slug,

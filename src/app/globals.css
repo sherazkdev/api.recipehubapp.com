@@ -199,6 +199,14 @@
   --radius-lg: var(--radius-lg);
 }
 
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
 html,
 body {
   height: 100%;
@@ -254,6 +262,68 @@ html body .api-docs-scroll::-webkit-scrollbar-thumb {
 
 html body .api-docs-scroll .swagger-ui {
   overflow: visible;
+  color: var(--text-primary);
+  background: transparent;
+}
+
+html body .api-docs-scroll .swagger-ui .topbar,
+html body .api-docs-scroll .swagger-ui .scheme-container {
+  background: var(--card-bg);
+  box-shadow: none;
+  border-bottom: 1px solid var(--border);
+}
+
+html body .api-docs-scroll .swagger-ui .info,
+html body .api-docs-scroll .swagger-ui .info .title,
+html body .api-docs-scroll .swagger-ui .opblock-summary-description,
+html body .api-docs-scroll .swagger-ui .opblock-description-wrapper p,
+html body .api-docs-scroll .swagger-ui .tab li,
+html body .api-docs-scroll .swagger-ui table thead tr td,
+html body .api-docs-scroll .swagger-ui table thead tr th,
+html body .api-docs-scroll .swagger-ui .parameter__name,
+html body .api-docs-scroll .swagger-ui .parameter__type,
+html body .api-docs-scroll .swagger-ui .response-col_status,
+html body .api-docs-scroll .swagger-ui .response-col_links,
+html body .api-docs-scroll .swagger-ui label,
+html body .api-docs-scroll .swagger-ui .model,
+html body .api-docs-scroll .swagger-ui .model-title,
+html body .api-docs-scroll .swagger-ui .prop-type,
+html body .api-docs-scroll .swagger-ui section.models h4 {
+  color: var(--text-primary);
+}
+
+html body .api-docs-scroll .swagger-ui .opblock {
+  background: var(--card-bg);
+  border-color: var(--border);
+}
+
+html body .api-docs-scroll .swagger-ui input,
+html body .api-docs-scroll .swagger-ui select,
+html body .api-docs-scroll .swagger-ui textarea {
+  background: var(--input-bg) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--input-border) !important;
+  color-scheme: inherit;
+}
+
+html body .api-docs-scroll .swagger-ui select option {
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+html body .api-docs-scroll .swagger-ui .dialog-ux .backdrop-ux {
+  background: var(--modal-overlay);
+}
+
+html body .api-docs-scroll .swagger-ui .dialog-ux .modal-ux {
+  background: var(--modal-bg);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+html body .api-docs-scroll .swagger-ui .filter-container input {
+  position: relative;
+  z-index: 1;
 }
 
 @media (max-width: 767px) {
@@ -271,6 +341,13 @@ input,
 textarea,
 select {
   font-family: inherit;
+  color: var(--text-primary);
+}
+
+select option,
+select optgroup {
+  background-color: var(--surface);
+  color: var(--text-primary);
 }
 
 ::selection {

@@ -1,8 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { attachImageUrls, publicOrigin } from "@/shared/http/media-url";
 import { ok, type ApiMeta } from "@/shared/types/api";
 
 export function jsonOk<T>(data: T, init?: ResponseInit, meta?: ApiMeta) {
   return NextResponse.json(ok(data, meta), init);
+}
+
+export function jsonMedia<T>(request: NextRequest, data: T, init?: ResponseInit, meta?: ApiMeta) {
+  return jsonOk(attachImageUrls(publicOrigin(request), data), init, meta);
 }
 
 export function compactFilters(filters: Record<string, string | number | boolean | undefined | null>) {

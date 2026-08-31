@@ -10,7 +10,7 @@ import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/cn";
 import { apiDelete, apiDownload, apiGet, apiPut, ApiError } from "@/lib/api-client";
 import { adminPath } from "@/lib/admin-path";
-import { mediaSrc } from "@/lib/media-url";
+import { recipeImageSrc } from "@/lib/media-url";
 
 type RecipeRow = {
   id: string;
@@ -21,11 +21,12 @@ type RecipeRow = {
   prepTime: number;
   calories: number;
   imagePath?: string;
+  imageUrl?: string;
   updatedAt?: string;
 };
 
 function RecipeNameCell({ recipe }: { recipe: RecipeRow }) {
-  const src = recipe.imagePath ? mediaSrc(recipe.imagePath) : "";
+  const src = recipeImageSrc(recipe);
   return (
     <div className="flex min-w-0 items-center gap-3">
       {src ? (
@@ -243,7 +244,7 @@ export default function RecipesPage() {
               {
                 key: "title",
                 header: "Recipe",
-                width: "w-[42%]",
+                width: "w-[38%]",
                 render: (row) => <RecipeNameCell recipe={row} />,
               },
               {

@@ -18,7 +18,7 @@ import { cacheGet, cacheSet, getCache } from "@/shared/cache/lru";
 import { connectDb } from "@/shared/db/connect";
 import { badRequest, notFound, serverError, withAuth } from "@/shared/middleware/auth";
 import type { ApiMeta } from "@/shared/types/api";
-import { compactFilters, jsonOk, slugify } from "@/shared/utils/http";
+import { compactFilters, jsonMedia, jsonOk, slugify } from "@/shared/utils/http";
 import { applyReorder, nextSortOrder, parseReorderIds } from "@/shared/utils/reorder";
 
 const listCache = getCache("recipe-list", 40, 20_000);
@@ -32,6 +32,11 @@ const recipeSchema = z.object({
     .string()
     .max(500)
     .refine((value) => isSafeImagePath(value), "Invalid image path")
+    .optional(),
+  imageUrl: z
+    .string()
+    .max(500)
+    .refine((value) => isSafeImagePath(value), "Invalid image url")
     .optional(),
   prepTime: z.number().optional(),
   calories: z.number().optional(),
@@ -91,8 +96,8 @@ export async function GET(request: NextRequest) {
       const { query } = parsed;
       const cacheKey = recipeQueryCacheKey(query);
       const cached = cacheGet<{ item?: unknown; items?: unknown[]; meta: ApiMeta }>(listCache, cacheKey);
-      if (cached?.item) return jsonOk(cached.item, undefined, cached.meta);
-      if (cached?.items) return jsonOk(cached.items, undefined, cached.meta);
+      if (cached?.item) return jsonMedia(req, cached.item, undefined, cached.meta);
+      if (cached?.items) return jsonMedia(req, cached.items, undefined, cached.meta);
 
       if (query.id || query.slug) {
         const found = await getRecipeByQuery(query);
@@ -104,7 +109,7 @@ export async function GET(request: NextRequest) {
           filters: compactFilters({ id: query.id, slug: query.slug }),
         };
         cacheSet(listCache, cacheKey, { item: found.item, meta });
-        return jsonOk(found.item, undefined, meta);
+        return jsonMedia(req, found.item, undefined, meta);
       }
 
       const listed = await listRecipesByQuery(query);
@@ -112,7 +117,7 @@ export async function GET(request: NextRequest) {
 
       const meta = recipeListMeta(query, listed.total, listed.langFallback);
       cacheSet(listCache, cacheKey, { items: listed.items, meta });
-      return jsonOk(listed.items, undefined, meta);
+      return jsonMedia(req, listed.items, undefined, meta);
     } catch (error) {
       console.error("List recipes error:", error);
       return serverError();
@@ -135,7 +140,7 @@ export async function POST(request: NextRequest) {
       const recipe = await Recipe.create({
         slug,
         cuisineId: parsed.data.cuisineId,
-        imagePath: parsed.data.imagePath ?? "",
+        imagePath: parsed.data.imagePath || parsed.data.imageUrl || "",
         prepTime: parsed.data.prepTime ?? 0,
         calories: parsed.data.calories ?? 0,
         difficulty: parsed.data.difficulty ?? "easy",
@@ -157,7 +162,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      return jsonOk(mapRecipe(recipe));
+      return jsonMedia(req, mapRecipe(recipe));
     } catch (error) {
       if ((error as { code?: number }).code === 11000) {
         return badRequest("Recipe slug already exists");
@@ -187,7 +192,8 @@ export async function PUT(request: NextRequest) {
       const parsed = recipeSchema.partial().safeParse(body);
       if (!parsed.success) return badRequest("Invalid recipe data");
 
-      const { content, ...recipeFields } = parsed.data;
+      const { content, imageUrl, ...recipeFields } = parsed.data;
+      if (imageUrl && !recipeFields.imagePath) recipeFields.imagePath = imageUrl;
       const recipe = await Recipe.findByIdAndUpdate(id, recipeFields, { returnDocument: "after" });
       if (!recipe) return notFound("Recipe not found");
       invalidateRecipeCaches();
@@ -203,7 +209,7 @@ export async function PUT(request: NextRequest) {
         });
       }
 
-      return jsonOk(mapRecipe(recipe));
+      return jsonMedia(req, mapRecipe(recipe));
     } catch (error) {
       console.error("Update recipe error:", error);
       return serverError();

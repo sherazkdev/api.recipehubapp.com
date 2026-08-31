@@ -246,7 +246,7 @@ export function DataTable<T>({
           />
         ) : (
           <div className="min-h-0 min-w-0 flex-1 overflow-x-auto">
-            <table className="w-full min-w-[680px] table-fixed border-separate border-spacing-0 [&_td]:align-middle [&_th]:align-middle">
+            <table className="w-full min-w-[720px] table-fixed border-separate border-spacing-0 [&_td]:align-middle [&_th]:align-middle">
               <thead>
                 <tr className="typo-table-head">
                   {showReorder ? (
@@ -282,7 +282,7 @@ export function DataTable<T>({
                       {column.header}
                     </th>
                   ))}
-                  {showRowActions ? <th className="w-10 px-3 py-2" /> : null}
+                  {showRowActions ? <th className="w-12 px-2 py-2" /> : null}
                 </tr>
               </thead>
               <tbody>
@@ -368,8 +368,8 @@ export function DataTable<T>({
                         </td>
                       ))}
                       {showRowActions ? (
-                        <td className="relative h-10 border-t border-[var(--border)] px-2">
-                          <div className="flex justify-end opacity-0 group-hover:opacity-100">
+                        <td className="relative h-10 overflow-visible border-t border-[var(--border)] px-2">
+                          <div className="flex justify-end">
                             <IconButton
                               aria-label="Row actions"
                               onClick={() => setMenuFor((current) => (current === id ? null : id))}
