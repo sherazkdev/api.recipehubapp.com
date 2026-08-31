@@ -1,0 +1,16 @@
+[Unit]
+Description=Recipe Hub API (Next.js :3013)
+After=network.target mongod.service
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/api.recipehubapp.com
+Environment=NODE_ENV=production
+Environment=PORT=3013
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target
