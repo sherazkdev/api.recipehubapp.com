@@ -7,6 +7,7 @@ export function invalidateRecipeCaches() {
 
 export function invalidateCatalogCaches() {
   clearCache("catalog");
+  clearCache("cuisine-list");
   clearCache("dashboard");
   clearCache("lang-codes");
 }

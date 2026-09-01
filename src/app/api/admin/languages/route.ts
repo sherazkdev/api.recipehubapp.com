@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 import { after, NextRequest } from "next/server";
 import { z } from "zod";
+import {
+  backfillCuisineLanguageContent,
+  deleteCuisineLanguageContent,
+} from "@/features/cuisines/services/cuisine-content.service";
 import { Language } from "@/features/languages/models/language.model";
 import {
   backfillLanguageContent,
@@ -86,7 +90,10 @@ export async function POST(request: NextRequest) {
       invalidateCatalogCaches();
       if (doc.isActive && doc.code !== "en") {
         after(() => {
-          void backfillLanguageContent(doc.code).catch((error) => {
+          void (async () => {
+            await backfillLanguageContent(doc.code);
+            await backfillCuisineLanguageContent(doc.code);
+          })().catch((error) => {
             console.error("Language backfill error:", error);
           });
         });
@@ -142,7 +149,10 @@ export async function PUT(request: NextRequest) {
       invalidateCatalogCaches();
       if (doc.isActive && !existing.isActive && doc.code !== "en") {
         after(() => {
-          void backfillLanguageContent(doc.code).catch((error) => {
+          void (async () => {
+            await backfillLanguageContent(doc.code);
+            await backfillCuisineLanguageContent(doc.code);
+          })().catch((error) => {
             console.error("Language backfill error:", error);
           });
         });
@@ -179,6 +189,7 @@ export async function DELETE(request: NextRequest) {
       const doc = await Language.findByIdAndDelete(id);
       if (!doc) return notFound("Language not found");
       await deleteLanguageContent(doc.code);
+      await deleteCuisineLanguageContent(doc.code);
       invalidateCatalogCaches();
       return jsonOk({ deleted: true });
     } catch (error) {

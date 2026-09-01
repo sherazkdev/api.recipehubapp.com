@@ -18,6 +18,24 @@ const idQuery = {
   schema: { type: "string" },
 };
 
+const recipeLangQuery = {
+  name: "lang",
+  in: "query",
+  required: false,
+  schema: { type: "string", default: "en", example: "ur" },
+  description:
+    "Recipe translation to return for list and single fetch (id or slug). Default en. If that language is missing, English is returned. Must be an active dashboard language.",
+};
+
+const cuisineLangQuery = {
+  name: "lang",
+  in: "query",
+  required: false,
+  schema: { type: "string", default: "en", example: "ur" },
+  description:
+    "Cuisine translation to return for list and single fetch (id or slug). Default en. If that language is missing, English is returned. Must be an active dashboard language. Slug is not translated.",
+};
+
 const nutritionSchema = {
   type: "object",
   description: "Per-serving nutrition. Calories are a top-level recipe field, not inside nutrition.",
@@ -105,7 +123,7 @@ export const swaggerSpec = {
     title: "Recipe Hub Admin API",
     version: "1.0.0",
     description:
-      "Admin-only API. Create/update recipes in English; translations are stored per active language. Read APIs accept query filters. Pass lang to choose the response language (default en; falls back to English if a translation is missing). Auth: Bearer JWT or x-api-key.",
+      "Admin-only API. Create/update recipes and cuisines in English; every active dashboard language is translated on save. lang picks the translation for recipe and cuisine GET (list or single fetch; default en; English fallback if that translation is missing). Auth: Bearer JWT or x-api-key.",
   },
   servers: [{ url: "/api", description: "Current host" }],
   components: {
@@ -184,9 +202,9 @@ export const swaggerSpec = {
         tags: ["Recipes"],
         summary: "List recipes or get one recipe",
         description:
-          "Filters apply only when the query param is sent. lang selects localized title/content (default en). Use id or slug for a single recipe. page/limit enable pagination. Omit sort to keep the admin drag-and-drop order.",
+          "Same GET for list and single fetch. lang picks the translation for both (default en; English fallback if missing). Use id or slug for one recipe. Other filters apply only when sent. page/limit paginate. Omit sort to keep admin drag-and-drop order.",
         parameters: [
-          { name: "lang", in: "query", schema: { type: "string", example: "ur" }, description: "Response language. Default en. Must be an active language." },
+          recipeLangQuery,
           { name: "id", in: "query", schema: { type: "string" }, description: "Return one recipe by id" },
           { name: "slug", in: "query", schema: { type: "string" }, description: "Return one recipe by slug" },
           { name: "status", in: "query", schema: { type: "string", enum: ["draft", "published", "archived"] } },
@@ -203,7 +221,8 @@ export const swaggerSpec = {
       post: {
         tags: ["Recipes"],
         summary: "Create recipe",
-        description: "English content only. Other active languages are translated automatically.",
+        description:
+          "English content only. On save, translations are written for every active language in the dashboard Languages section.",
         requestBody: jsonBody({
           type: "object",
           required: ["cuisineId"],
@@ -342,17 +361,22 @@ export const swaggerSpec = {
     "/admin/cuisines": {
       get: {
         tags: ["Cuisines"],
-        summary: "List cuisines",
+        summary: "List cuisines or get one cuisine",
+        description:
+          "Same GET for list and single fetch. lang picks the translation for both (default en; English fallback if missing). Use id or slug for one cuisine. q searches localized name, slug, or description. Slug is language-independent.",
         parameters: [
-          { name: "id", in: "query", schema: { type: "string" } },
-          { name: "slug", in: "query", schema: { type: "string" } },
-          { name: "q", in: "query", schema: { type: "string" }, description: "Search name, slug, or description" },
+          cuisineLangQuery,
+          { name: "id", in: "query", schema: { type: "string" }, description: "Return one cuisine by id" },
+          { name: "slug", in: "query", schema: { type: "string" }, description: "Return one cuisine by slug" },
+          { name: "q", in: "query", schema: { type: "string" }, description: "Search name or description in lang, with English fallback, plus slug" },
         ],
         responses: ok,
       },
       post: {
         tags: ["Cuisines"],
         summary: "Create cuisine",
+        description:
+          "English name and description only. On save, translations are written for every active language in the dashboard Languages section. Slug is not translated.",
         requestBody: jsonBody({
           type: "object",
           required: ["name"],
@@ -370,7 +394,8 @@ export const swaggerSpec = {
       put: {
         tags: ["Cuisines"],
         summary: "Update cuisine",
-        description: "To persist admin list order, send { reorder: [id, id, ...] } instead of a single-cuisine update.",
+        description:
+          "Update English name and description. Translations refresh for every active language. Slug stays language-independent. To persist admin list order, send { reorder: [id, id, ...] } instead of a single-cuisine update.",
         requestBody: jsonBody({
           type: "object",
           properties: {
@@ -405,7 +430,7 @@ export const swaggerSpec = {
       post: {
         tags: ["Languages"],
         summary: "Create language",
-        description: "Existing English recipes are translated into the new language.",
+        description: "Existing English recipes and cuisines are translated into the new language.",
         requestBody: jsonBody({
           type: "object",
           required: ["code", "name"],

@@ -55,7 +55,12 @@ export function CuisineForm({
   return (
     <FormPage
       title={mode === "create" ? "Add Cuisine" : "Edit Cuisine"}
-      subtitle={mode === "create" ? "Name a cuisine recipes can belong to." : "Update cuisine details."}
+      subtitle={
+        mode === "create"
+          ? "Enter the cuisine in English. All dashboard languages are translated automatically."
+          : "Edit the English cuisine. Translations refresh for every active language on save."
+      }
+      loadingLabel="Saving and translating…"
       backHref={adminPath("/cuisines")}
       backLabel="Back to Cuisines"
       submitLabel={mode === "create" ? "Create Cuisine" : "Save Changes"}
@@ -64,7 +69,7 @@ export function CuisineForm({
       error={error}
       onSubmit={() => handleSubmit()}
     >
-      <FormSection variant="card" title="Cuisine" description="Name, slug, and a short description.">
+      <FormSection variant="card" title="Cuisine" description="English name and summary. Other languages are translated on save.">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField label="Name" required>
             <TextInput value={name} onChange={(event) => setName(event.target.value)} />

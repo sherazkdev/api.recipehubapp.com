@@ -66,7 +66,7 @@ export function LanguageForm({
       title={mode === "create" ? "Add Language" : "Edit Language"}
       subtitle={
         mode === "create"
-          ? "Add a locale. Existing English recipes will be translated into it."
+          ? "Add a locale. Existing English recipes and cuisines will be translated into it."
           : "Update language details. English cannot be deactivated."
       }
       loadingLabel={mode === "create" ? "Saving and translating…" : "Saving…"}

@@ -19,14 +19,12 @@ export default function EditCuisinePage() {
   useEffect(() => {
     void (async () => {
       try {
-        const items = await apiGet<
-          { id: string; name: string; slug: string; description: string }[]
-        >("/api/admin/cuisines");
-        const found = items.find((item) => item.id === params.id);
-        if (!found) {
-          setError("Cuisine not found");
-          return;
-        }
+        const found = await apiGet<{
+          id: string;
+          name: string;
+          slug: string;
+          description: string;
+        }>(`/api/admin/cuisines?id=${params.id}`);
         setCuisine(found);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : "Failed to load cuisine");

@@ -1,16 +1,29 @@
 import mongoose from "mongoose";
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { CuisineContent } from "@/features/cuisines/models/cuisine-content.model";
 import { Cuisine } from "@/features/cuisines/models/cuisine.model";
+import { saveLocalizedCuisineContent } from "@/features/cuisines/services/cuisine-content.service";
+import {
+  cuisineListMeta,
+  cuisineQueryCacheKey,
+  getCuisineByQuery,
+  listCuisinesByQuery,
+  mapCuisine,
+  parseCuisineQuery,
+} from "@/features/cuisines/services/cuisine-query.service";
 import { isSafeImagePath } from "@/features/upload/utils/validate";
 import { invalidateCatalogCaches } from "@/shared/cache/invalidate";
 import { cacheGet, cacheSet, getCache } from "@/shared/cache/lru";
 import { connectDb } from "@/shared/db/connect";
 import { badRequest, notFound, serverError, withAuth } from "@/shared/middleware/auth";
+import type { ApiMeta } from "@/shared/types/api";
 import { compactFilters, jsonMedia, jsonOk, slugify } from "@/shared/utils/http";
 import { applyReorder, nextSortOrder, parseReorderIds } from "@/shared/utils/reorder";
 
-const catalogCache = getCache("catalog", 20, 120_000);
+const listCache = getCache("cuisine-list", 20, 20_000);
+
+export const maxDuration = 120;
 
 const cuisineSchema = z.object({
   name: z.string().min(1),
@@ -25,41 +38,32 @@ export async function GET(request: NextRequest) {
   return withAuth(request, async (_, req) => {
     try {
       await connectDb();
-      const params = req.nextUrl.searchParams;
-      const id = params.get("id")?.trim();
-      const slug = params.get("slug")?.trim().toLowerCase();
-      const q = params.get("q")?.trim().toLowerCase();
-      if (id && !mongoose.isValidObjectId(id)) return badRequest("Invalid id");
+      const parsed = await parseCuisineQuery(req.nextUrl.searchParams);
+      if (!parsed.ok) return badRequest(parsed.error, "details" in parsed ? parsed.details : undefined);
 
-      const cached = cacheGet<{ items: unknown[] }>(catalogCache, "cuisines");
-      const items =
-        cached?.items ??
-        (await Cuisine.find().sort({ sortOrder: 1, name: 1 }).lean()).map((item) => ({
-          id: item._id.toString(),
-          name: item.name,
-          slug: item.slug,
-          imagePath: item.imagePath,
-          description: item.description,
-          sortOrder: item.sortOrder ?? 0,
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt,
-        }));
-      if (!cached?.items) cacheSet(catalogCache, "cuisines", { items });
+      const { query } = parsed;
+      const cacheKey = cuisineQueryCacheKey(query);
+      const cached = cacheGet<{ item?: unknown; items?: unknown[]; meta: ApiMeta }>(listCache, cacheKey);
+      if (cached?.item) return jsonMedia(req, cached.item, undefined, cached.meta);
+      if (cached?.items) return jsonMedia(req, cached.items, undefined, cached.meta);
 
-      const filtered = items.filter((item) => {
-        const row = item as { id: string; name: string; slug: string; description?: string };
-        if (id && row.id !== id) return false;
-        if (slug && row.slug !== slug) return false;
-        if (q) {
-          const haystack = `${row.name} ${row.slug} ${row.description ?? ""}`.toLowerCase();
-          if (!haystack.includes(q)) return false;
-        }
-        return true;
-      });
+      if (query.id || query.slug) {
+        const found = await getCuisineByQuery(query);
+        if (!found) return notFound("Cuisine not found");
+        const meta = {
+          lang: query.lang,
+          fallbackLang: "en",
+          langFallback: found.langFallback,
+          filters: compactFilters({ id: query.id, slug: query.slug }),
+        };
+        cacheSet(listCache, cacheKey, { item: found.item, meta });
+        return jsonMedia(req, found.item, undefined, meta);
+      }
 
-      return jsonMedia(req, filtered, undefined, {
-        filters: compactFilters({ id, slug, q }),
-      });
+      const listed = await listCuisinesByQuery(query);
+      const meta = cuisineListMeta(query, listed.total, listed.langFallback);
+      cacheSet(listCache, cacheKey, { items: listed.items, meta });
+      return jsonMedia(req, listed.items, undefined, meta);
     } catch (error) {
       console.error("List cuisines error:", error);
       return serverError();
@@ -85,14 +89,12 @@ export async function POST(request: NextRequest) {
       });
 
       invalidateCatalogCaches();
-      return jsonMedia(req, {
-        id: doc._id.toString(),
+      await saveLocalizedCuisineContent(doc._id, {
         name: doc.name,
-        slug: doc.slug,
-        imagePath: doc.imagePath,
         description: doc.description,
-        sortOrder: doc.sortOrder ?? 0,
       });
+
+      return jsonMedia(req, mapCuisine(doc.toObject()));
     } catch (error) {
       if ((error as { code?: number }).code === 11000) {
         return badRequest("Cuisine slug already exists");
@@ -133,14 +135,14 @@ export async function PUT(request: NextRequest) {
       if (!doc) return notFound("Cuisine not found");
       invalidateCatalogCaches();
 
-      return jsonMedia(req, {
-        id: doc._id.toString(),
-        name: doc.name,
-        slug: doc.slug,
-        imagePath: doc.imagePath,
-        description: doc.description,
-        sortOrder: doc.sortOrder ?? 0,
-      });
+      if (parsed.data.name !== undefined || parsed.data.description !== undefined) {
+        await saveLocalizedCuisineContent(doc._id, {
+          name: doc.name,
+          description: doc.description,
+        });
+      }
+
+      return jsonMedia(req, mapCuisine(doc.toObject()));
     } catch (error) {
       console.error("Update cuisine error:", error);
       return serverError();
@@ -158,6 +160,7 @@ export async function DELETE(request: NextRequest) {
 
       const doc = await Cuisine.findByIdAndDelete(id);
       if (!doc) return notFound("Cuisine not found");
+      await CuisineContent.deleteMany({ cuisineId: doc._id });
       invalidateCatalogCaches();
       return jsonOk({ deleted: true });
     } catch (error) {

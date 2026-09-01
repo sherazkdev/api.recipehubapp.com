@@ -1,11 +1,12 @@
 import { Admin } from "@/features/auth/models/admin.model";
+import { CuisineContent } from "@/features/cuisines/models/cuisine-content.model";
 import { Cuisine } from "@/features/cuisines/models/cuisine.model";
 import { Language } from "@/features/languages/models/language.model";
 import { RecipeContent } from "@/features/recipes/models/recipe-content.model";
 import { Recipe } from "@/features/recipes/models/recipe.model";
 import { ApiKey } from "@/features/tokens/models/token.model";
 
-const MODELS = [Admin, Cuisine, Language, Recipe, RecipeContent, ApiKey] as const;
+const MODELS = [Admin, Cuisine, CuisineContent, Language, Recipe, RecipeContent, ApiKey] as const;
 
 export type IndexSyncResult = {
   collection: string;
