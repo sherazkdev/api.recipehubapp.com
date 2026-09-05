@@ -46,8 +46,24 @@ function rememberTranslation(sourceLang: string, targetLang: string, original: s
   cacheSet(translationCache, `${sourceLang}:${targetLang}:${original.trim()}`, { value: result });
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T) {
+  return new Promise<T>((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(fallback);
+      },
+    );
+  });
+}
+
 async function translateRaw(text: string, targetLang: string, sourceLang = "en") {
-  const result = await translate(text, sourceLang, engineLang(targetLang));
+  const result = await withTimeout(translate(text, sourceLang, engineLang(targetLang)), 20_000, null);
   return result?.translation?.trim() || text;
 }
 

@@ -6,7 +6,12 @@ config({ path: resolve(process.cwd(), ".env") });
 
 import { hashPassword, validatePassword } from "../src/features/auth/services/password.service";
 import { Admin } from "../src/features/auth/models/admin.model";
+import { CuisineContent } from "../src/features/cuisines/models/cuisine-content.model";
 import { Cuisine } from "../src/features/cuisines/models/cuisine.model";
+import {
+  backfillCuisineLanguageContent,
+  saveLocalizedCuisineContent,
+} from "../src/features/cuisines/services/cuisine-content.service";
 import { Language } from "../src/features/languages/models/language.model";
 import { Recipe } from "../src/features/recipes/models/recipe.model";
 import { RecipeContent } from "../src/features/recipes/models/recipe-content.model";
@@ -14,70 +19,10 @@ import {
   backfillLanguageContent,
   saveLocalizedRecipeContent,
 } from "../src/features/recipes/services/recipe-content.service";
-import { getActiveLanguageCodes } from "../src/features/i18n/translate.service";
-// English is stored first. Other languages are filled by bing-translate-api.
+// English is stored first. Other languages are filled from Language documents in the database.
 import { connectDb } from "../src/shared/db/connect";
 import { syncAllIndexes } from "../src/shared/db/indexes";
-
-type DemoRecipe = {
-  slug: string;
-  cuisineSlug: string;
-  prepTime: number;
-  calories: number;
-  difficulty: "easy" | "medium" | "hard";
-  servings: number;
-  title: string;
-  description: string;
-  tags: string[];
-  chefTips: string[];
-  ingredients: Array<{ name: string; amount: string; unit: string }>;
-  steps: Array<{ order: number; title: string; text: string }>;
-};
-
-const demoRecipes: DemoRecipe[] = [
-  {
-    slug: "garlic-bread",
-    cuisineSlug: "italian",
-    prepTime: 20,
-    calories: 280,
-    difficulty: "easy",
-    servings: 4,
-    title: "Garlic Bread",
-    description: "Crispy baked bread with garlic butter and herbs.",
-    tags: ["bread", "side", "italian"],
-    chefTips: ["Serve hot from the oven."],
-    ingredients: [
-      { name: "Bread", amount: "1", unit: "loaf" },
-      { name: "Garlic", amount: "4", unit: "cloves" },
-      { name: "Butter", amount: "50", unit: "g" },
-    ],
-    steps: [
-      { order: 1, title: "Prepare", text: "Mix soft butter with chopped garlic." },
-      { order: 2, title: "Bake", text: "Spread on bread and bake until golden." },
-    ],
-  },
-  {
-    slug: "spicy-chicken-curry",
-    cuisineSlug: "indian",
-    prepTime: 45,
-    calories: 420,
-    difficulty: "medium",
-    servings: 4,
-    title: "Spicy Chicken Curry",
-    description: "A warm Indian curry with tender chicken and aromatic spices.",
-    tags: ["chicken", "curry", "dinner"],
-    chefTips: ["Rest the curry for ten minutes before serving."],
-    ingredients: [
-      { name: "Chicken", amount: "500", unit: "g" },
-      { name: "Onion", amount: "2", unit: "pcs" },
-      { name: "Tomato", amount: "2", unit: "pcs" },
-    ],
-    steps: [
-      { order: 1, title: "Cook the base", text: "Fry onion until golden, then add spices and tomato." },
-      { order: 2, title: "Simmer", text: "Add chicken and simmer until cooked through." },
-    ],
-  },
-];
+import { demoRecipes } from "./seed-data";
 
 const cuisines = [
   { name: "Italian", slug: "italian", description: "Classic Italian cuisine" },
@@ -173,7 +118,17 @@ async function seed() {
   await upsertAdmin();
 
   for (const cuisine of cuisines) {
-    await Cuisine.updateOne({ slug: cuisine.slug }, cuisine, { upsert: true });
+    const doc = await Cuisine.findOneAndUpdate({ slug: cuisine.slug }, cuisine, {
+      upsert: true,
+      returnDocument: "after",
+    });
+    if (doc) {
+      await CuisineContent.findOneAndUpdate(
+        { cuisineId: doc._id, langCode: "en" },
+        { name: cuisine.name, description: cuisine.description ?? "" },
+        { upsert: true },
+      );
+    }
   }
   console.log(`Seeded ${cuisines.length} cuisines`);
 
@@ -199,6 +154,7 @@ async function seed() {
     if (wasInactive && language.code !== "en") backfillCodes.push(language.code);
   }
   console.log(`Seeded ${languages.length} languages (${backfillCodes.length} new or reactivated)`);
+  console.log(`Seeding ${demoRecipes.length} recipes (English first, then every active language)`);
 
   for (const demo of demoRecipes) {
     const cuisine = await Cuisine.findOne({ slug: demo.cuisineSlug });
@@ -216,6 +172,7 @@ async function seed() {
         calories: demo.calories,
         difficulty: demo.difficulty,
         servings: demo.servings,
+        nutrition: demo.nutrition,
         status: "published",
       });
     } else {
@@ -224,6 +181,7 @@ async function seed() {
       recipe.calories = demo.calories;
       recipe.difficulty = demo.difficulty;
       recipe.servings = demo.servings;
+      recipe.nutrition = demo.nutrition;
       recipe.status = "published";
       await recipe.save();
     }
@@ -243,39 +201,80 @@ async function seed() {
   }
 
   try {
-    for (const code of backfillCodes) {
-      const result = await backfillLanguageContent(code);
-      console.log(`Backfilled ${code} for ${result.updated} existing English recipe(s)`);
+    const dbLanguages = await Language.find().select("code name isActive").sort({ code: 1 }).lean();
+    const codes = [...new Set(dbLanguages.map((row) => row.code.toLowerCase()))].filter((code) => code !== "en");
+    console.log(
+      `Localizing from ${dbLanguages.length} language(s) saved in the database: ${dbLanguages
+        .map((row) => `${row.code}${row.isActive === false ? " (inactive)" : ""}`)
+        .join(", ")}`,
+    );
+
+    for (const code of backfillCodes.filter((item) => codes.includes(item))) {
+      const recipes = await backfillLanguageContent(code);
+      const cuisineResult = await backfillCuisineLanguageContent(code);
+      console.log(
+        `Backfilled ${code} for ${recipes.updated} existing English recipe(s) and ${cuisineResult.updated} cuisine(s)`,
+      );
     }
 
-    const codes = (await getActiveLanguageCodes()).filter((code) => code !== "en");
+    const recipeIds = new Set((await Recipe.find().select("_id").lean()).map((row) => row._id.toString()));
+    const englishRecipes = (await RecipeContent.find({ langCode: "en" }).lean()).filter((row) =>
+      recipeIds.has(row.recipeId.toString()),
+    );
+
     let updated = 0;
-    for (const demo of demoRecipes) {
-      const recipe = await Recipe.findOne({ slug: demo.slug }).select("_id").lean();
-      if (!recipe) continue;
-      const existing = await RecipeContent.find({ recipeId: recipe._id }).select("langCode").lean();
+    for (const english of englishRecipes) {
+      const existing = await RecipeContent.find({ recipeId: english.recipeId }).select("langCode").lean();
       const have = new Set(existing.map((row) => row.langCode));
       const missing = codes.filter((code) => !have.has(code));
       if (missing.length === 0) {
-        console.log(`Translations already present for ${demo.slug}`);
+        console.log(`Translations already present for recipe ${english.title}`);
         continue;
       }
-      await saveLocalizedRecipeContent(
-        recipe._id,
-        {
-          title: demo.title,
-          description: demo.description,
-          tags: demo.tags,
-          chefTips: demo.chefTips,
-          ingredients: demo.ingredients,
-          steps: demo.steps,
-        },
-        { wait: true },
-      );
-      updated += 1;
-      console.log(`Translated ${demo.slug} into ${missing.length} missing language(s)`);
+      try {
+        await saveLocalizedRecipeContent(
+          english.recipeId,
+          {
+            title: english.title,
+            description: english.description,
+            tags: english.tags,
+            chefTips: english.chefTips,
+            ingredients: english.ingredients,
+            steps: english.steps,
+          },
+          { wait: true },
+        );
+        updated += 1;
+        console.log(`Translated recipe ${english.title} into ${missing.join(", ")}`);
+      } catch (error) {
+        console.error(`Failed to translate recipe ${english.title}:`, error);
+      }
     }
-    console.log(`Translated ${updated} demo recipes into every active language`);
+    console.log(`Translated ${updated} recipes into every language saved in the database`);
+
+    let cuisineUpdated = 0;
+    const cuisineDocs = await Cuisine.find().select("_id name description").lean();
+    for (const cuisine of cuisineDocs) {
+      const existing = await CuisineContent.find({ cuisineId: cuisine._id }).select("langCode").lean();
+      const have = new Set(existing.map((row) => row.langCode));
+      const missing = codes.filter((code) => !have.has(code));
+      if (missing.length === 0) {
+        console.log(`Translations already present for cuisine ${cuisine.name}`);
+        continue;
+      }
+      try {
+        await saveLocalizedCuisineContent(
+          cuisine._id,
+          { name: cuisine.name, description: cuisine.description ?? "" },
+          { wait: true },
+        );
+        cuisineUpdated += 1;
+        console.log(`Translated cuisine ${cuisine.name} into ${missing.join(", ")}`);
+      } catch (error) {
+        console.error(`Failed to translate cuisine ${cuisine.name}:`, error);
+      }
+    }
+    console.log(`Translated ${cuisineUpdated} cuisines into every language saved in the database`);
   } catch (error) {
     console.error("Translation backfill failed (admin seed and indexes still applied):", error);
   }

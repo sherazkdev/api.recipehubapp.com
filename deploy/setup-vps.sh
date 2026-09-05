@@ -6,7 +6,7 @@ set -euo pipefail
 #   sudo bash deploy/setup-vps.sh
 
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-SITE_NAME="api.recipehubapp.com"
+SITE_NAME="recipehubapi.com"
 NGINX_AVAIL="/etc/nginx/sites-available/${SITE_NAME}"
 NGINX_ENABLED="/etc/nginx/sites-enabled/${SITE_NAME}"
 SERVICE_PATH="/etc/systemd/system/recipehub.service"
@@ -43,4 +43,4 @@ echo "Nginx -> http://127.0.0.1:3013  (server_name ${SITE_NAME})"
 echo "App dir: ${APP_DIR}"
 echo "Check: curl -I http://127.0.0.1:3013/api/health"
 echo "Public: http://${SITE_NAME}/  (DNS A record -> this VPS)"
-echo "TLS: sudo certbot --nginx -d ${SITE_NAME}"
+echo "TLS: sudo certbot --nginx -d ${SITE_NAME} -d www.${SITE_NAME}"
