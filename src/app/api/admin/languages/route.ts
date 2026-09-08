@@ -16,6 +16,7 @@ import { connectDb } from "@/shared/db/connect";
 
 const catalogCache = getCache("catalog", 20, 120_000);
 import { badRequest, notFound, serverError, withAuth } from "@/shared/middleware/auth";
+import { enforceMaintenance } from "@/shared/middleware/maintenance";
 import { compactFilters, jsonOk } from "@/shared/utils/http";
 import { applyReorder, nextSortOrder, parseReorderIds } from "@/shared/utils/reorder";
 
@@ -31,9 +32,12 @@ const languageSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  return withAuth(request, async (_, req) => {
+  return withAuth(request, async (auth, req) => {
     try {
       await connectDb();
+      const maintenance = await enforceMaintenance(request, auth);
+      if (maintenance) return maintenance;
+
       const isActive = req.nextUrl.searchParams.get("isActive")?.trim();
       if (isActive && !["true", "false"].includes(isActive)) {
         return badRequest("isActive must be true or false");

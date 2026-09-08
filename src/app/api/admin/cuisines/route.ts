@@ -17,6 +17,7 @@ import { invalidateCatalogCaches } from "@/shared/cache/invalidate";
 import { cacheGet, cacheSet, getCache } from "@/shared/cache/lru";
 import { connectDb } from "@/shared/db/connect";
 import { badRequest, notFound, serverError, withAuth } from "@/shared/middleware/auth";
+import { enforceMaintenance } from "@/shared/middleware/maintenance";
 import type { ApiMeta } from "@/shared/types/api";
 import { compactFilters, jsonMedia, jsonOk, slugify } from "@/shared/utils/http";
 import { applyReorder, nextSortOrder, parseReorderIds } from "@/shared/utils/reorder";
@@ -35,9 +36,12 @@ const cuisineSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  return withAuth(request, async (_, req) => {
+  return withAuth(request, async (auth, req) => {
     try {
       await connectDb();
+      const maintenance = await enforceMaintenance(request, auth);
+      if (maintenance) return maintenance;
+
       const parsed = await parseCuisineQuery(req.nextUrl.searchParams);
       if (!parsed.ok) return badRequest(parsed.error, "details" in parsed ? parsed.details : undefined);
 

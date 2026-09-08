@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/buttons";
 import { Checkbox, SearchInput, Select } from "@/components/ui/fields";
 import { ConfirmDeleteModal, EmptyState, SkeletonState } from "@/components/ui/feedback";
+import { paginationItems } from "@/shared/utils/status-tone";
 
 export type Column<T> = {
   key: string;
@@ -33,25 +34,31 @@ export function Pagination({
   pageCount: number;
   onPage: (page: number) => void;
 }) {
-  const pages = Array.from({ length: pageCount }, (_, index) => index + 1);
+  const items = paginationItems(page, pageCount);
   return (
-    <div className="flex shrink-0 items-center justify-end gap-1 pt-3">
+    <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 pt-3">
       <IconButton onClick={() => onPage(Math.max(1, page - 1))} disabled={page === 1} aria-label="Previous page">
         <Icon name="caretLeft" size={14} />
       </IconButton>
-      {pages.map((item) => (
-        <button
-          key={item}
-          type="button"
-          onClick={() => onPage(item)}
-          className={cn(
-            "flex size-7 items-center justify-center rounded-full text-[14px] leading-5",
-            item === page ? "bg-[var(--surface-hover)]" : "hover:bg-[var(--surface-hover)]",
-          )}
-        >
-          {item}
-        </button>
-      ))}
+      {items.map((item, index) =>
+        item === "ellipsis" ? (
+          <span key={`ellipsis-${index}`} className="px-1 text-[13px] text-[var(--text-muted)]">
+            …
+          </span>
+        ) : (
+          <button
+            key={item}
+            type="button"
+            onClick={() => onPage(item)}
+            className={cn(
+              "flex size-7 items-center justify-center rounded-full text-[14px] leading-5",
+              item === page ? "bg-[var(--surface-hover)]" : "hover:bg-[var(--surface-hover)]",
+            )}
+          >
+            {item}
+          </button>
+        ),
+      )}
       <IconButton
         onClick={() => onPage(Math.min(pageCount, page + 1))}
         disabled={page === pageCount}

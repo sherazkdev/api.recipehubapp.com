@@ -50,15 +50,24 @@ const sections: NavSection[] = [
     id: "account",
     label: "Account",
     items: [
+      { href: adminPath("/settings/general"), label: "Settings", icon: "sliders" },
+      { href: adminPath("/ai/activity"), label: "AI Activity", icon: "activity" },
       { href: adminPath("/settings/api-keys"), label: "API Keys", icon: "password" },
-      { href: adminPath("/settings/system"), label: "System Status", icon: "heartbeat" },
-      { href: adminPath("/settings/change-password"), label: "Change Password", icon: "password" },
     ],
   },
 ];
 
 function isActive(pathname: string, href: string) {
   if (href === ADMIN_BASE) return pathname === ADMIN_BASE;
+  if (href === adminPath("/settings/general")) {
+    return (
+      pathname === href ||
+      pathname.startsWith(`${adminPath("/settings/general")}/`) ||
+      pathname.startsWith(`${adminPath("/settings/ai")}`) ||
+      pathname.startsWith(`${adminPath("/settings/system")}`) ||
+      pathname.startsWith(`${adminPath("/settings/password")}`)
+    );
+  }
   if (href === adminPath("/recipes")) {
     return (
       pathname === href ||

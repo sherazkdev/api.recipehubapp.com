@@ -47,6 +47,8 @@ export const icons = {
   sparkle: "/assets/weather-&-nature/Sparkle.svg",
   broadcast: "/assets/communication/Broadcast.svg",
   leaf: "/assets/weather-&-nature/Leaf.svg",
+  sliders: "/assets/design/Layout.svg",
+  activity: "/assets/time/ClockCounterClockwise.svg",
   grip: "/assets/office-&-editing/List.svg",
   snowflake: "/assets/weather-&-nature/Snowflake.svg",
   chefHat: "/assets/commerce/ForkKnife.svg",

@@ -17,6 +17,8 @@ export class ApiError extends Error {
   }
 }
 
+import type { ApiMeta } from "@/shared/types/api";
+
 type RequestOptions = {
   auth?: boolean;
   method?: string;
@@ -24,23 +26,29 @@ type RequestOptions = {
   headers?: Record<string, string>;
 };
 
-async function parseResponse<T>(response: Response): Promise<T> {
-  const data = (await response.json()) as {
+async function parseResponseBody<T>(response: Response): Promise<{ data: T; meta?: ApiMeta }> {
+  const payload = (await response.json()) as {
     success?: boolean;
     data?: T;
+    meta?: ApiMeta;
     error?: string;
     details?: unknown;
   };
 
-  if (!response.ok || data.success === false) {
+  if (!response.ok || payload.success === false) {
     if (response.status === 401) {
       clearAccessToken();
       redirectToAdminLogin("expired");
     }
-    throw new ApiError(data.error ?? "Request failed", response.status, data.details);
+    throw new ApiError(payload.error ?? "Request failed", response.status, payload.details);
   }
 
-  return data.data as T;
+  return { data: payload.data as T, meta: payload.meta };
+}
+
+async function parseResponse<T>(response: Response): Promise<T> {
+  const { data } = await parseResponseBody<T>(response);
+  return data;
 }
 
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -67,6 +75,22 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 
 export async function apiGet<T>(path: string, auth = true) {
   return apiFetch<T>(path, { auth });
+}
+
+export async function apiGetWithMeta<T>(path: string, auth = true) {
+  const token = getAccessToken();
+  const finalHeaders: Record<string, string> = {};
+  if (auth && token) {
+    finalHeaders.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(path, {
+    method: "GET",
+    headers: finalHeaders,
+    credentials: "include",
+  });
+
+  return parseResponseBody<T>(response);
 }
 
 export async function apiPost<T>(path: string, body?: unknown, options?: Omit<RequestOptions, "body">) {

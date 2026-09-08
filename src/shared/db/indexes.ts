@@ -4,9 +4,11 @@ import { Cuisine } from "@/features/cuisines/models/cuisine.model";
 import { Language } from "@/features/languages/models/language.model";
 import { RecipeContent } from "@/features/recipes/models/recipe-content.model";
 import { Recipe } from "@/features/recipes/models/recipe.model";
+import { AiActivity } from "@/features/ai-activity/models/ai-activity.model";
+import { Settings } from "@/features/settings/models/settings.model";
 import { ApiKey } from "@/features/tokens/models/token.model";
 
-const MODELS = [Admin, Cuisine, CuisineContent, Language, Recipe, RecipeContent, ApiKey] as const;
+const MODELS = [Admin, Cuisine, CuisineContent, Language, Recipe, RecipeContent, ApiKey, Settings, AiActivity] as const;
 
 export type IndexSyncResult = {
   collection: string;

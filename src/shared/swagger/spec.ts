@@ -70,7 +70,7 @@ const recipeStepSchema = {
     durationMin: { type: "number" },
     text: { type: "string" },
     imagePath: { type: "string", description: "Relative upload path or full URL stored on the record" },
-            imageUrl: { type: "string", description: "Full public URL. Accepted on write; always returned on read." },
+    imageUrl: { type: "string", description: "Full public URL. Accepted on write; always returned on read." },
   },
 };
 
@@ -117,13 +117,52 @@ const recipeWriteExample = {
   },
 };
 
+const scanResponseSchema = {
+  type: "object",
+  properties: {
+    is_food: { type: "boolean" },
+    message: { type: "string", description: "Shown when is_food is false" },
+    ingredients: { type: "array", items: { type: "string" } },
+    dish_name: { type: "string", nullable: true },
+  },
+};
+
+const chatRecipeSchema = {
+  type: "object",
+  description: "AI-generated recipe JSON. Empty object {} when prompt is not food-related (foodOnlyMode).",
+  properties: {
+    title: { type: "string" },
+    cook_time: { type: "string", description: "Minutes as string number" },
+    calories: { type: "number" },
+    ingredients: { type: "array", items: { type: "string" } },
+    steps: { type: "array", items: { type: "string" } },
+    tags: { type: "array", items: { type: "string" } },
+    chef_tips: { type: "array", items: { type: "string" } },
+    nutrition: {
+      type: "object",
+      properties: {
+        calories: { type: "number" },
+        carbs_g: { type: "number" },
+        protein_g: { type: "number" },
+        fat_g: { type: "number" },
+        fiber_g: { type: "number" },
+        sugar_g: { type: "number" },
+        saturated_fat_g: { type: "number" },
+        sodium_mg: { type: "number" },
+        cholesterol_mg: { type: "number" },
+      },
+    },
+    image: { type: "string", description: "Optional Pollinations URL when imageSource is pollinations" },
+  },
+};
+
 export const swaggerSpec = {
   openapi: "3.0.0",
   info: {
     title: "Recipe Hub Admin API",
     version: "1.0.0",
     description:
-      "Admin-only API. Create/update recipes and cuisines in English; every active dashboard language is translated on save. lang picks the translation for recipe and cuisine GET (list or single fetch; default en; English fallback if that translation is missing). Auth: Bearer JWT or x-api-key.",
+      "Admin API + mobile AI endpoints (scan, chat). Create/update recipes and cuisines in English; every active dashboard language is translated on save. lang picks the translation for recipe and cuisine GET (list or single fetch; default en; English fallback if that translation is missing). Recipe/cuisine reads include imageUrl computed from imagePath + PUBLIC_APP_URL. Auth: Bearer JWT or x-api-key.",
   },
   servers: [{ url: "/api", description: "Current host" }],
   components: {
@@ -135,9 +174,11 @@ export const swaggerSpec = {
   security: [{ bearerAuth: [] }, { apiKeyAuth: [] }],
   tags: [
     { name: "Auth" },
+    { name: "AI" },
     { name: "Recipes" },
     { name: "Cuisines" },
     { name: "Languages" },
+    { name: "Settings" },
     { name: "API Keys" },
     { name: "System" },
   ],
@@ -148,6 +189,58 @@ export const swaggerSpec = {
         summary: "Public health check",
         security: [],
         responses: okPublic,
+      },
+    },
+    "/scan": {
+      post: {
+        tags: ["AI"],
+        summary: "Scan food photo (vision)",
+        description:
+          "Mobile scan flow. Send base64 image. fridge_mode=true lists fridge/ingredient items; false identifies a finished dish. Does not save a recipe to the catalog.",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["image_base64"],
+          properties: {
+            image_base64: { type: "string", description: "Base64-encoded image (no data: prefix)" },
+            mime: { type: "string", default: "image/jpeg", example: "image/jpeg" },
+            language: { type: "string", default: "English", example: "English" },
+            fridge_mode: { type: "boolean", default: false, description: "true = fridge/ingredients, false = finished dish" },
+          },
+        }),
+        responses: {
+          200: {
+            description: "Scan result",
+            content: { "application/json": { schema: { type: "object", properties: { success: { type: "boolean" }, data: scanResponseSchema } } } },
+          },
+          400: { description: "Invalid request or rate limit" },
+          401: { description: "Unauthorized" },
+          503: { description: "Maintenance mode" },
+        },
+      },
+    },
+    "/chat": {
+      post: {
+        tags: ["AI"],
+        summary: "Generate recipe from prompt",
+        description:
+          "Mobile recipe generation. Returns AI JSON (title, ingredients, steps, nutrition, optional image). Does not save to the catalog. Empty {} when foodOnlyMode rejects the prompt.",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["prompt"],
+          properties: {
+            prompt: { type: "string", example: "Quick chicken curry with rice" },
+            language: { type: "string", default: "English", example: "English" },
+          },
+        }),
+        responses: {
+          200: {
+            description: "Generated recipe JSON",
+            content: { "application/json": { schema: { type: "object", properties: { success: { type: "boolean" }, data: chatRecipeSchema } } } },
+          },
+          400: { description: "Invalid request or rate limit" },
+          401: { description: "Unauthorized" },
+          503: { description: "Maintenance mode" },
+        },
       },
     },
     "/admin/login": {
@@ -230,7 +323,7 @@ export const swaggerSpec = {
             slug: { type: "string" },
             cuisineId: { type: "string" },
             imagePath: { type: "string", description: "Relative upload path or full URL stored on the record" },
-            imageUrl: { type: "string", description: "Full public URL. Accepted on write; always returned on read." },
+    imageUrl: { type: "string", description: "Full public URL. Accepted on write; always returned on read." },
             prepTime: { type: "number" },
             calories: { type: "number" },
             difficulty: { type: "string", enum: ["easy", "medium", "hard"] },
@@ -256,7 +349,7 @@ export const swaggerSpec = {
             slug: { type: "string" },
             cuisineId: { type: "string" },
             imagePath: { type: "string", description: "Relative upload path or full URL stored on the record" },
-            imageUrl: { type: "string", description: "Full public URL. Accepted on write; always returned on read." },
+    imageUrl: { type: "string", description: "Full public URL. Accepted on write; always returned on read." },
             prepTime: { type: "number" },
             calories: { type: "number" },
             difficulty: { type: "string", enum: ["easy", "medium", "hard"] },
@@ -384,7 +477,7 @@ export const swaggerSpec = {
             name: { type: "string" },
             slug: { type: "string" },
             imagePath: { type: "string", description: "Relative upload path or full URL stored on the record" },
-            imageUrl: { type: "string", description: "Full public URL. Accepted on write; always returned on read." },
+    imageUrl: { type: "string", description: "Full public URL. Accepted on write; always returned on read." },
             description: { type: "string" },
             sortOrder: { type: "number" },
           },
@@ -403,7 +496,7 @@ export const swaggerSpec = {
             name: { type: "string" },
             slug: { type: "string" },
             imagePath: { type: "string", description: "Relative upload path or full URL stored on the record" },
-            imageUrl: { type: "string", description: "Full public URL. Accepted on write; always returned on read." },
+    imageUrl: { type: "string", description: "Full public URL. Accepted on write; always returned on read." },
             description: { type: "string" },
             sortOrder: { type: "number" },
             reorder: { type: "array", items: { type: "string" }, description: "Cuisine ids in the desired list order" },
@@ -492,6 +585,64 @@ export const swaggerSpec = {
     },
     "/admin/dashboard": {
       get: { tags: ["System"], summary: "Dashboard stats", responses: ok },
+    },
+    "/admin/ai-activity": {
+      get: {
+        tags: ["System"],
+        summary: "AI activity log",
+        description:
+          "Paginated AI scan/generate events. Use summary=1 for chart stats. Use export=csv to download CSV.",
+        parameters: [
+          { name: "type", in: "query", schema: { type: "string", enum: ["all", "generate", "scan", "failed"] } },
+          { name: "from", in: "query", schema: { type: "string", format: "date", example: "2026-09-01" } },
+          { name: "to", in: "query", schema: { type: "string", format: "date", example: "2026-09-08" } },
+          { name: "page", in: "query", schema: { type: "integer", minimum: 1 } },
+          { name: "pageSize", in: "query", schema: { type: "integer", minimum: 1, maximum: 100 } },
+          { name: "summary", in: "query", schema: { type: "string", enum: ["1"] }, description: "Return chart summary instead of rows" },
+          { name: "export", in: "query", schema: { type: "string", enum: ["csv"] }, description: "Download CSV export" },
+        ],
+        responses: ok,
+      },
+    },
+    "/admin/settings": {
+      get: {
+        tags: ["Settings"],
+        summary: "Get admin settings",
+        description: "Returns general + AI settings (Groq key masked).",
+        responses: ok,
+      },
+      put: {
+        tags: ["Settings"],
+        summary: "Update admin settings",
+        description: "Send section general or ai with a data object.",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["section", "data"],
+          properties: {
+            section: { type: "string", enum: ["general", "ai"] },
+            data: { type: "object", description: "Fields for the selected section" },
+          },
+        }),
+        responses: mutating,
+      },
+    },
+    "/admin/settings/test-groq": {
+      post: {
+        tags: ["Settings"],
+        summary: "Test Groq API connection",
+        requestBody: jsonBody({
+          type: "object",
+          properties: {
+            groqApiKey: { type: "string", description: "Optional override; uses saved key when omitted" },
+            recipeModel: { type: "string", description: "Optional override; uses saved model when omitted" },
+          },
+        }),
+        responses: {
+          200: { description: "Connection result with ok true/false" },
+          400: { description: "Missing API key" },
+          401: { description: "Unauthorized" },
+        },
+      },
     },
     "/admin/system": {
       get: { tags: ["System"], summary: "System health status", responses: ok },

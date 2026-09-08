@@ -5,10 +5,14 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3013",
     "start:vps": "next start -p 3013",
     "lint": "eslint",
     "seed": "tsx scripts/seed.ts",
+    "images:check": "node scripts/check-recipe-images.mjs",
+    "images:sync": "node scripts/sync-recipe-image-paths.mjs",
+    "images:sync:apply": "node scripts/sync-recipe-image-paths.mjs --apply",
+    "test:ai": "node scripts/test-scan-api.mjs",
     "db:indexes": "tsx scripts/sync-indexes.ts",
     "index": "tsx scripts/sync-indexes.ts"
   },

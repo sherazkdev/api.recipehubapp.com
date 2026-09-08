@@ -1,46 +1,62 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCache } from "@/shared/cache/lru";
+import { badRequest } from "@/shared/middleware/auth";
 
-type Bucket = { count: number; resetAt: number };
+type RateEntry = { count: number; windowStart: number };
 
-const buckets = new Map<string, Bucket>();
+const ipRateCache = getCache("ip-rate", 500, 120_000);
+const aiRateCache = getCache("ai-rate", 500, 120_000);
 
-function sweep(now: number) {
-  if (buckets.size < 2000) return;
-  for (const [key, bucket] of buckets) {
-    if (bucket.resetAt <= now) buckets.delete(key);
-  }
+function clientIp(request: NextRequest) {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown"
+  );
 }
 
-export function clientIp(request: NextRequest) {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0]?.trim() || "unknown";
-  return request.headers.get("x-real-ip") ?? "unknown";
-}
-
-export function allowRequest(key: string, limit: number, windowMs: number) {
-  const now = Date.now();
-  sweep(now);
-  const current = buckets.get(key);
-  if (!current || current.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
-    return true;
-  }
-  if (current.count >= limit) return false;
-  current.count += 1;
-  return true;
-}
-
-export function tooManyRequests(message = "Too many requests. Try again shortly.") {
-  return NextResponse.json({ success: false, error: message }, { status: 429 });
+function readEntry(cache: ReturnType<typeof getCache>, key: string): RateEntry | undefined {
+  return cache.get(key) as RateEntry | undefined;
 }
 
 export function enforceRateLimit(
   request: NextRequest,
-  name: string,
-  limit: number,
+  bucket: string,
+  max: number,
   windowMs: number,
-) {
-  const key = `${name}:${clientIp(request)}`;
-  if (allowRequest(key, limit, windowMs)) return null;
-  return tooManyRequests();
+): NextResponse | null {
+  const key = `${bucket}:${clientIp(request)}`;
+  const now = Date.now();
+  const entry = readEntry(ipRateCache, key);
+
+  if (!entry || now - entry.windowStart >= windowMs) {
+    ipRateCache.set(key, { count: 1, windowStart: now });
+    return null;
+  }
+
+  if (entry.count >= max) {
+    return badRequest("Too many requests. Please try again later.");
+  }
+
+  ipRateCache.set(key, { count: entry.count + 1, windowStart: entry.windowStart });
+  return null;
+}
+
+export function checkRateLimit(key: string, maxPerMinute: number): string | null {
+  if (maxPerMinute < 1) return null;
+
+  const now = Date.now();
+  const entry = readEntry(aiRateCache, key);
+
+  if (!entry || now - entry.windowStart >= 60_000) {
+    aiRateCache.set(key, { count: 1, windowStart: now });
+    return null;
+  }
+
+  if (entry.count >= maxPerMinute) {
+    return `Rate limit exceeded (${maxPerMinute} requests per minute)`;
+  }
+
+  aiRateCache.set(key, { count: entry.count + 1, windowStart: entry.windowStart });
+  return null;
 }
