@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { z } from "zod";
+import { CuisineContent } from "@/features/cuisines/models/cuisine-content.model";
 import { Cuisine } from "@/features/cuisines/models/cuisine.model";
 import { getActiveLanguageCodes } from "@/features/i18n/translate.service";
 import { RecipeContent } from "@/features/recipes/models/recipe-content.model";
@@ -27,7 +28,15 @@ const recipeQuerySchema = z.object({
     .optional(),
 });
 
+export type RecipeCuisineRef = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 export type RecipeQuery = z.infer<typeof recipeQuerySchema> & { lang: string };
+
+export type MappedRecipe = ReturnType<typeof mapRecipe> & { cuisine: RecipeCuisineRef };
 
 export type LocalizedContent = {
   langCode: string;
@@ -64,6 +73,47 @@ function mapNutrition(nutrition?: Record<string, number> | null) {
     if (typeof value === "number" && Number.isFinite(value)) out[key] = value;
   }
   return out;
+}
+
+async function buildCuisineRefMap(cuisineIds: mongoose.Types.ObjectId[], lang: string) {
+  const unique = [...new Set(cuisineIds.map((id) => id.toString()))];
+  if (!unique.length) return new Map<string, RecipeCuisineRef>();
+
+  const cuisines = await Cuisine.find({ _id: { $in: unique } }).select("slug name").lean();
+  const contents = await CuisineContent.find({
+    cuisineId: { $in: cuisines.map((item) => item._id) },
+    langCode: { $in: [...new Set([lang, FALLBACK_LANG])] },
+  })
+    .select("cuisineId langCode name")
+    .lean();
+
+  const map = new Map<string, RecipeCuisineRef>();
+  for (const cuisine of cuisines) {
+    const id = cuisine._id.toString();
+    const rows = contents.filter((item) => item.cuisineId.toString() === id);
+    const preferred = rows.find((item) => item.langCode === lang);
+    const fallback = rows.find((item) => item.langCode === FALLBACK_LANG);
+    map.set(id, {
+      id,
+      name: preferred?.name ?? fallback?.name ?? cuisine.name,
+      slug: cuisine.slug,
+    });
+  }
+  return map;
+}
+
+function attachCuisine(
+  recipe: ReturnType<typeof mapRecipe>,
+  cuisineMap: Map<string, RecipeCuisineRef>,
+): MappedRecipe {
+  const cuisine =
+    cuisineMap.get(recipe.cuisineId) ??
+    ({
+      id: recipe.cuisineId,
+      name: "",
+      slug: "",
+    } satisfies RecipeCuisineRef);
+  return { ...recipe, cuisine };
 }
 
 export function mapRecipe(recipe: {
@@ -229,9 +279,12 @@ export async function getRecipeByQuery(query: RecipeQuery) {
     steps: [],
   };
 
+  const cuisineMap = await buildCuisineRefMap([recipe.cuisineId], query.lang);
+  const base = mapRecipe(recipe);
+
   return {
     item: {
-      ...mapRecipe(recipe),
+      ...attachCuisine(base, cuisineMap),
       lang: content.langCode,
       langFallback: picked.langFallback,
       title: content.title,
@@ -246,7 +299,13 @@ export async function listRecipesByQuery(
   query: RecipeQuery,
 ): Promise<
   | { error: string }
-  | { items: Array<ReturnType<typeof mapRecipe> & { title: string; description: string; tags: string[]; lang: string; langFallback: boolean }>; total: number; langFallback: boolean }
+  | {
+      items: Array<
+        MappedRecipe & { title: string; description: string; tags: string[]; lang: string; langFallback: boolean }
+      >;
+      total: number;
+      langFallback: boolean;
+    }
 > {
   const cuisineId = await resolveCuisineId(query);
   if (cuisineId === null) {
@@ -298,6 +357,11 @@ export async function listRecipesByQuery(
   }
   const recipes = await listQuery.lean();
 
+  const cuisineMap = await buildCuisineRefMap(
+    recipes.map((recipe) => recipe.cuisineId),
+    query.lang,
+  );
+
   const contents = await RecipeContent.find({
     recipeId: { $in: recipes.map((recipe) => recipe._id) },
     langCode: { $in: [...new Set([query.lang, FALLBACK_LANG])] },
@@ -309,7 +373,7 @@ export async function listRecipesByQuery(
     const picked = pickLocalized(contents, recipe._id.toString(), query.lang);
     const content = picked.content;
     return {
-      ...mapRecipe(recipe),
+      ...attachCuisine(mapRecipe(recipe), cuisineMap),
       title: content?.title ?? recipe.slug,
       description: content?.description ?? "",
       tags: content?.tags ?? [],

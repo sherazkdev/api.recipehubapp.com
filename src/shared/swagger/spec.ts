@@ -87,6 +87,17 @@ const recipeContentSchema = {
   },
 };
 
+const recipeCuisineRefSchema = {
+  type: "object",
+  required: ["id", "name", "slug"],
+  description: "Resolved cuisine for the recipe's cuisineId (localized name for lang query).",
+  properties: {
+    id: { type: "string" },
+    name: { type: "string" },
+    slug: { type: "string" },
+  },
+};
+
 const recipeWriteExample = {
   slug: "creamy-garlic-pasta",
   cuisineId: "64f0c0a1b2c3d4e5f6789012",
@@ -295,7 +306,7 @@ export const swaggerSpec = {
         tags: ["Recipes"],
         summary: "List recipes or get one recipe",
         description:
-          "Same GET for list and single fetch. lang picks the translation for both (default en; English fallback if missing). Use id or slug for one recipe. Other filters apply only when sent. page/limit paginate. Omit sort to keep admin drag-and-drop order.",
+          "Same GET for list and single fetch. lang picks the translation for both (default en; English fallback if missing). Use id or slug for one recipe. Other filters apply only when sent. page/limit paginate. Omit sort to keep admin drag-and-drop order. Each recipe includes cuisine { id, name, slug } resolved from cuisineId.",
         parameters: [
           recipeLangQuery,
           { name: "id", in: "query", schema: { type: "string" }, description: "Return one recipe by id" },
