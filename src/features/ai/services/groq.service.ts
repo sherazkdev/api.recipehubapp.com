@@ -1,29 +1,8 @@
 import type { AiSettings } from "@/features/settings/types";
+import { groqChat, type GroqMessage } from "@/features/ai/services/groq-api";
+import { resolveRecipeHeroImage } from "@/features/ai/services/recipe-hero-image.service";
 
-type GroqMessage =
-  | { role: string; content: string }
-  | {
-      role: string;
-      content: Array<{ type: string; text?: string; image_url?: { url: string } }>;
-    };
-
-function extractJson(text: string) {
-  const trimmed = text.trim();
-  if (trimmed.startsWith("{")) {
-    try {
-      return JSON.parse(trimmed) as Record<string, unknown>;
-    } catch {
-      /* fall through */
-    }
-  }
-  const match = trimmed.match(/\{[\s\S]*\}/);
-  if (!match) return null;
-  try {
-    return JSON.parse(match[0]) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
+export { groqChat, type GroqMessage };
 
 function buildRecipeInstruction(ai: AiSettings, language: string, prompt: string) {
   const foodRule = ai.foodOnlyMode
@@ -58,46 +37,6 @@ function buildScanInstruction(ai: AiSettings, language: string, foodOnlyMessage:
   );
 }
 
-export async function groqChat(input: {
-  apiKey: string;
-  model: string;
-  messages: GroqMessage[];
-  temperature?: number;
-}) {
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${input.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: input.model,
-      temperature: input.temperature ?? 0.7,
-      messages: input.messages,
-      response_format: { type: "json_object" },
-    }),
-  });
-
-  const payload = (await response.json()) as {
-    error?: { message?: string };
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-
-  if (!response.ok) {
-    const message = payload.error?.message ?? "Groq request failed";
-    const error = new Error(message) as Error & { status?: number };
-    error.status = response.status;
-    throw error;
-  }
-
-  const content = payload.choices?.[0]?.message?.content ?? "";
-  const parsed = extractJson(content);
-  if (!parsed) {
-    throw new Error("Groq returned invalid JSON");
-  }
-  return parsed;
-}
-
 export async function testGroqConnection(apiKey: string, model: string) {
   const started = Date.now();
   await groqChat({
@@ -105,7 +44,7 @@ export async function testGroqConnection(apiKey: string, model: string) {
     model,
     temperature: 0,
     messages: [
-      { role: "system", content: "Reply with JSON: {\"ok\":true}" },
+      { role: "system", content: 'Reply with JSON: {"ok":true}' },
       { role: "user", content: "ping" },
     ],
   });
@@ -130,10 +69,51 @@ export async function generateRecipe(input: { prompt: string; language: string; 
   });
 
   if (recipe && Object.keys(recipe).length > 0 && input.ai.imageSource === "pollinations") {
-    const title = String(recipe.title ?? input.prompt);
-    recipe.image =
-      `https://image.pollinations.ai/prompt/${encodeURIComponent(title)}` +
-      "?width=512&height=512&nologo=true";
+    const imageResult = await resolveRecipeHeroImage({
+      recipe,
+      ai: input.ai,
+      recipeLanguage: input.language,
+    });
+    recipe.image = imageResult.url;
+    recipe.image_prompt = imageResult.imagePrompt;
+    if (imageResult.seed != null) recipe.image_seed = imageResult.seed;
+    if (imageResult.model) recipe.image_model = imageResult.model;
+    if (imageResult.generationMs != null) recipe.image_generation_ms = imageResult.generationMs;
+    if (imageResult.imageWidth != null) recipe.image_width = imageResult.imageWidth;
+    if (imageResult.imageHeight != null) recipe.image_height = imageResult.imageHeight;
+    if (imageResult.providerBytes != null) recipe.image_bytes = imageResult.providerBytes;
+    if (imageResult.recipeMetaPath) recipe.recipe_image_meta = imageResult.recipeMetaPath;
+    recipe.image_debug = {
+      prompt: imageResult.imagePrompt,
+      prompt_meta: imageResult.promptDebug ?? null,
+      attempts: imageResult.attempts ?? [],
+      generation_error: imageResult.error ?? null,
+      debug_log_path: imageResult.debugLogPath ?? null,
+    };
+    recipe.image_quality = {
+      meets_hero_requirements:
+        imageResult.model === "catalog" || imageResult.model === "useful-folder",
+      blur_source:
+        imageResult.providerBytes != null
+          ? "provider"
+          : imageResult.model === "catalog" || imageResult.model === "useful-folder"
+            ? "n/a"
+            : "unknown",
+      provider: imageResult.model === "catalog" || imageResult.model === "useful-folder" ? null : "pollinations.ai",
+      model: imageResult.model ?? "unknown",
+      dimensions:
+        imageResult.imageWidth && imageResult.imageHeight
+          ? `${imageResult.imageWidth}x${imageResult.imageHeight}`
+          : null,
+      watermark:
+        imageResult.model === "catalog" || imageResult.model === "useful-folder"
+          ? null
+          : "Recipe API requests nologo=true; served copy crops bottom watermark strip. Full removal without crop needs free Pollinations account token (POLLINATIONS_TOKEN) per provider docs.",
+      note:
+        imageResult.model === "catalog" || imageResult.model === "useful-folder"
+          ? null
+          : "768px provider cap; merged/soft food texture — current free Pollinations setup does not meet hero quality.",
+    };
   }
 
   if (!input.ai.includeNutrition && recipe && typeof recipe === "object") {

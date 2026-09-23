@@ -163,7 +163,24 @@ const chatRecipeSchema = {
         cholesterol_mg: { type: "number" },
       },
     },
-    image: { type: "string", description: "Optional Pollinations URL when imageSource is pollinations" },
+    image: { type: "string", description: "Hero image URL (catalog, upload, or Pollinations)" },
+    image_prompt: {
+      type: "string",
+      description: "Exact Pollinations text prompt used when image is AI-generated",
+    },
+    image_debug: {
+      type: "object",
+      description:
+        "Temporary debug: English image prompt, translation meta, Pollinations attempts, optional debug_log_path when generation fails",
+      properties: {
+        prompt: { type: "string" },
+        prompt_meta: { type: "object" },
+        attempts: { type: "array", items: { type: "object" } },
+        generation_error: { type: "string", nullable: true },
+        debug_log_path: { type: "string", nullable: true },
+      },
+    },
+    image_seed: { type: "number", description: "Pollinations seed when AI-generated (optional)" },
   },
 };
 
@@ -233,8 +250,8 @@ export const swaggerSpec = {
       post: {
         tags: ["AI"],
         summary: "Generate recipe from prompt",
-        description:
-          "Mobile recipe generation. Returns AI JSON (title, ingredients, steps, nutrition, optional image). Does not save to the catalog. Empty {} when foodOnlyMode rejects the prompt.",
+    description:
+      "Mobile recipe generation. Returns AI JSON (title, ingredients, steps, nutrition, optional image). Hero image prefers published catalog photos, then quality-gated AI (multi-model + sharpness check). Does not save to the catalog. Empty {} when foodOnlyMode rejects the prompt.",
         requestBody: jsonBody({
           type: "object",
           required: ["prompt"],
