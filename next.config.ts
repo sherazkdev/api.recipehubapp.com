@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   turbopack: {},
-  serverExternalPackages: ["bing-translate-api", "got"],
+  serverExternalPackages: ["bing-translate-api", "got", "mongoose"],
   async headers() {
     return [
       {

@@ -24,7 +24,7 @@ async function main() {
     process.exit(1);
   }
 
-  await mongoose.connect(MONGODB_URI);
+  await mongoose.connect(MONGODB_URI, { maxPoolSize: 2, minPoolSize: 0 });
   const Recipe = mongoose.connection.collection("recipes");
 
   const recipes = await Recipe.find({}, { projection: { slug: 1, imagePath: 1, status: 1 } }).toArray();
